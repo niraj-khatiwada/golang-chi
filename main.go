@@ -13,8 +13,7 @@ import (
 func main() {
 	loadEnv()
 	router := chi.NewRouter()
-	router.Use(chiMiddleware.Logger)
-	router.Use(chiMiddleware.RealIP)
+	router.Use(getMiddlewares()...)
 	routes.Routes(router)
 	port := os.Getenv("SERVER_PORT")
 	fmt.Printf("Server started at port %s\n", port)
@@ -28,4 +27,13 @@ func loadEnv() {
 	if err := dotenv.Load(); err != nil {
 		panic("Error loading .env file.")
 	}
+}
+
+func getMiddlewares() []func(http.Handler) http.Handler {
+	middlewares := []func(http.Handler) http.Handler{chiMiddleware.RealIP}
+	debug := os.Getenv("DEBUG") == "true"
+	if debug {
+		middlewares = append(middlewares, chiMiddleware.Logger)
+	}
+	return middlewares
 }
