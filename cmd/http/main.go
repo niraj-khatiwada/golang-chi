@@ -15,15 +15,17 @@ import (
 func main() {
 	utils.LoadEnv()
 
-	_, dbErr := db.InitializeDB(config.Database{})
-	if dbErr != nil {
-		log.Fatal("Database connection error", dbErr)
+	database, err := db.InitDB(config.Database{})
+	if err != nil {
+		log.Fatal("[error] Database connection error", err)
 		return
 	}
 
+	libs := config.Libs{DB: database}
+
 	router := chi.NewRouter()
 	router.Use(utils.GetRouterMiddlewares()...)
-	routes.Routes(router)
+	routes.Routes(router, &libs)
 
 	port := os.Getenv("SERVER_PORT")
 	fmt.Printf("Server started at port %s\n", port)

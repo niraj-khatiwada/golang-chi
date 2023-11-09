@@ -1,26 +1,29 @@
 package db
 
 import (
-	"fmt"
 	"go-web/config"
 	"go-web/utils"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"os"
-	"time"
+	"gorm.io/gorm/schema"
 )
 
-func InitializeDB(conf config.Database) (*gorm.DB, error) {
+func InitDB(conf config.Database) (*gorm.DB, error) {
 	var dbConf config.Database
 	if conf != (config.Database{}) {
 		dbConf = conf
 	} else {
-		dbConf = getDefaultConfig()
+		dbConf = config.GetDefaultDatabaseConfig()
 	}
-	dsn := createDSN(&dbConf)
+	dsn := config.CreateDatabaseDSN(&dbConf)
 	db, err := gorm.Open(mysql.New(mysql.Config{
 		DSN: dsn,
-	}), &gorm.Config{})
+	}), &gorm.Config{
+		DisableForeignKeyConstraintWhenMigrating: true,
+		NamingStrategy: schema.NamingStrategy{
+			SingularTable: true,
+		},
+	})
 	if err != nil {
 		utils.CatchRuntimeErrors(err)
 		return nil, err
@@ -29,22 +32,9 @@ func InitializeDB(conf config.Database) (*gorm.DB, error) {
 		utils.CatchRuntimeErrors(err)
 		return nil, err
 	} else {
-		sqlDB.SetMaxOpenConns(25)
-		sqlDB.SetMaxIdleConns(25)
-		sqlDB.SetConnMaxLifetime(time.Hour)
+		sqlDB.SetMaxOpenConns(config.DbMaxOpenConnections)
+		sqlDB.SetMaxIdleConns(config.DbMaxIdleConnections)
+		sqlDB.SetConnMaxLifetime(config.DbConnectionMaxLifetime)
 	}
 	return db, nil
-}
-
-func getDefaultConfig() config.Database {
-	host := os.Getenv("DATABASE_HOST")
-	port := os.Getenv("DATABASE_PORT")
-	user := os.Getenv("DATABASE_USER")
-	name := os.Getenv("DATABASE_NAME")
-	password := os.Getenv("DATABASE_PASSWORD")
-	return config.Database{Host: host, Port: port, User: user, Name: name, Password: password}
-}
-
-func createDSN(config *config.Database) string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.User, config.Password, config.Host, config.Port, config.Name)
 }
