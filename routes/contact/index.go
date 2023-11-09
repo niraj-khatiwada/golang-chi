@@ -2,23 +2,25 @@ package contact
 
 import (
 	"github.com/go-chi/chi/v5"
-	errors "go-web/libs"
-	"html/template"
+	"go-web/utils"
 	"net/http"
 )
 
 func Contact(router chi.Router) {
 	router.Get("/contact", func(w http.ResponseWriter, r *http.Request) {
-
-		t, err := template.ParseFiles("views/contact.gohtml")
-		if err != nil {
-			errors.CatchRuntimeErrors(err)
-			http.Error(w, "error", 500)
-			return
-		}
-
+		t := utils.ParseViewFiles(&w, "contact.gohtml")
 		if err := t.Execute(w, nil); err != nil {
-			errors.CatchRuntimeErrors(err)
+			utils.CatchRuntimeErrors(err)
+			http.Error(w, "error", 500)
+		}
+	})
+	router.Post("/contact", func(w http.ResponseWriter, r *http.Request) {
+		// Req body
+		// Validate it
+		// Save to database
+		t := utils.ParseViewFiles(&w, "contact.gohtml")
+		if err := t.Execute(w, nil); err != nil {
+			utils.CatchRuntimeErrors(err)
 			http.Error(w, "error", 500)
 		}
 	})
