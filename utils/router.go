@@ -7,7 +7,7 @@ import (
 )
 
 func GetRouterMiddlewares() []func(http.Handler) http.Handler {
-	middlewares := []func(http.Handler) http.Handler{chiMiddleware.RealIP}
+	middlewares := []func(http.Handler) http.Handler{chiMiddleware.RealIP, chiMiddleware.StripSlashes}
 	debug := os.Getenv("DEBUG") == "true"
 	if debug {
 		middlewares = append(middlewares, chiMiddleware.Logger)
