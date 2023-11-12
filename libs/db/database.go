@@ -32,9 +32,9 @@ func (database *DB) Init(conf config.Database) error {
 		utils.CatchRuntimeErrors(err)
 		return err
 	}
-	if sqlDB, err := db.DB(); err != nil {
-		utils.CatchRuntimeErrors(err)
-		return err
+	if sqlDB, dbErr := db.DB(); dbErr != nil {
+		utils.CatchRuntimeErrors(dbErr)
+		return dbErr
 	} else {
 		sqlDB.SetMaxOpenConns(config.DbMaxOpenConnections)
 		sqlDB.SetMaxIdleConns(config.DbMaxIdleConnections)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -16,7 +17,8 @@ const (
 func (r *Redis) Get(key string, value interface{}) error {
 	ctx, cancel := context.WithTimeout(context.Background(), Timeout*time.Second)
 	defer cancel()
-	str, err := r.Client.Get(ctx, key).Result()
+	keysWithNamespace := r.generateKeys(key)
+	str, err := r.Client.Get(ctx, keysWithNamespace[0]).Result()
 	if err != nil {
 		return ErrNoEntry
 	}
@@ -31,7 +33,8 @@ func (r *Redis) Set(key string, value interface{}, ttl time.Duration) error {
 	defer cancel()
 
 	byteData, _ := json.Marshal(value)
-	err := r.Client.Set(ctx, key, byteData, ttl).Err()
+	keysWithNamespace := r.generateKeys(key)
+	err := r.Client.Set(ctx, keysWithNamespace[0], byteData, ttl).Err()
 	if err != nil {
 		return err
 	}
@@ -42,9 +45,19 @@ func (r *Redis) Delete(keys ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), Timeout*time.Second)
 	defer cancel()
 
-	if err := r.Client.Del(ctx, keys...).Err(); err != nil {
+	keysWithNamespace := r.generateKeys(keys...)
+	if err := r.Client.Del(ctx, keysWithNamespace...).Err(); err != nil {
 		return err
 	}
 	return nil
 
+}
+
+func (r *Redis) generateKeys(keys ...string) []string {
+	var keysWithNamespace []string
+	for _, key := range keys {
+		keysWithNamespace = append(keysWithNamespace, fmt.Sprintf("%s:%s", r.GlobalNamespace, key))
+	}
+	fmt.Println(keysWithNamespace)
+	return keysWithNamespace
 }
