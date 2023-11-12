@@ -2,6 +2,7 @@ package routes
 
 import (
 	"errors"
+	"fmt"
 	"github.com/go-chi/chi/v5"
 	validator "github.com/go-ozzo/ozzo-validation/v4"
 	validatorIs "github.com/go-ozzo/ozzo-validation/v4/is"
@@ -39,7 +40,7 @@ func Contact(rootRouter chi.Router, libs *libs.Libs) {
 				http.Error(w, "error", 500)
 				return
 			} else {
-				if redisErr := libs.Redis.Set("csrf-token", uuid, 15*time.Minute); redisErr != nil {
+				if redisErr := libs.Redis.Set(fmt.Sprintf("csrf-token-%s", uuid), uuid, 15*time.Minute); redisErr != nil {
 					utils.CatchRuntimeErrors(redisErr)
 					http.Error(w, "error", 500)
 					return
@@ -79,22 +80,6 @@ func Contact(rootRouter chi.Router, libs *libs.Libs) {
 				}
 
 				// CSRF
-				var csrfToken string
-				redisErr := libs.Redis.Get("csrf-token", &csrfToken)
-				if redisErr != nil {
-					if errors.Is(redisErr, redis.ErrNoEntry) {
-						// TODO: Integrate Session and redirect back to /contact
-						data.Success = false
-						data.Message = "Invalid form submission. Form submission time expired."
-						data.Form = ContactForm{}
-					}
-					if err := template.Execute(w, data); err != nil {
-						utils.CatchRuntimeErrors(err)
-						http.Error(w, "error", 500)
-					}
-					return
-				}
-
 				cookieStr, cookieErr := r.Cookie("csrf")
 				if cookieErr != nil {
 					if errors.Is(cookieErr, http.ErrNoCookie) {
@@ -113,11 +98,16 @@ func Contact(rootRouter chi.Router, libs *libs.Libs) {
 					}
 					return
 				}
-
-				if cookieStr.Value != csrfToken {
-					data.Success = false
-					data.Message = "Invalid form submission. Form submission time expired."
-					data.Form = ContactForm{}
+				var csrfToken string
+				csrfTokenKey := fmt.Sprintf("csrf-token-%s", cookieStr.Value)
+				redisErr := libs.Redis.Get(csrfTokenKey, &csrfToken)
+				if redisErr != nil {
+					if errors.Is(redisErr, redis.ErrNoEntry) {
+						// TODO: Integrate Session and redirect back to /contact
+						data.Success = false
+						data.Message = "Invalid form submission. Form submission time expired."
+						data.Form = ContactForm{}
+					}
 					if err := template.Execute(w, data); err != nil {
 						utils.CatchRuntimeErrors(err)
 						http.Error(w, "error", 500)
@@ -132,7 +122,7 @@ func Contact(rootRouter chi.Router, libs *libs.Libs) {
 					return
 				}
 				// Delete CSRF Token
-				if redisDelErr := libs.Redis.Delete([]string{"csrf-token"}...); redisDelErr != nil {
+				if redisDelErr := libs.Redis.Delete([]string{csrfTokenKey}...); redisDelErr != nil {
 					utils.CatchRuntimeErrors(result.Error)
 					http.Error(w, "error", 500)
 					return
