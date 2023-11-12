@@ -30,6 +30,7 @@
         </div>
     {{end}}
     <form action="/contact" method="POST">
+        <input type="hidden" name="csrf" value="{{.CSRFToken}}"/>
         <div>
             <label for="name">Name</label>
             <input required type="text" id="name" name="name" placeholder="Your name.." value="{{.Form.Name}}">

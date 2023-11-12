@@ -27,7 +27,7 @@ type WithRequestInputValidationContext struct {
 	FormData         url.Values
 }
 
-func (middleware WithRequestInputValidation) Validate(validationsMap map[string][]validation.Rule) func(next http.Handler) http.Handler {
+func (middleware *WithRequestInputValidation) Validate(validationsMap map[string][]validation.Rule) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if validationsMap == nil {
