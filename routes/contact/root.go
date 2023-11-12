@@ -1,15 +1,19 @@
-package contact
+package routes
 
 import (
+	"errors"
 	"github.com/go-chi/chi/v5"
 	validator "github.com/go-ozzo/ozzo-validation/v4"
 	validatorIs "github.com/go-ozzo/ozzo-validation/v4/is"
-	"go-web/config"
+	"go-web/libs"
+	"go-web/libs/cookie"
+	"go-web/libs/redis"
 	"go-web/libs/validation"
 	"go-web/models"
 	"go-web/utils"
 	"go-web/views"
 	"net/http"
+	"time"
 )
 
 type ContactForm struct {
@@ -25,9 +29,26 @@ type ContactData struct {
 	Message          string
 }
 
-func Contact(rootRouter chi.Router, libs *config.Libs) {
+func Contact(rootRouter chi.Router, libs *libs.Libs) {
 	rootRouter.Route("/contact", func(router chi.Router) {
 		router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			UUID := utils.AlphanumericUUID{}
+
+			if uuid, err := UUID.Generate(); err != nil {
+				utils.CatchRuntimeErrors(err)
+				http.Error(w, "error", 500)
+				return
+			} else {
+				if redisErr := libs.Redis.Set("csrf-token", uuid, 15*time.Minute); redisErr != nil {
+					utils.CatchRuntimeErrors(redisErr)
+					http.Error(w, "error", 500)
+					return
+				}
+				cookieOptions := &cookie.Cookie{HttpOnly: true, Name: "csrf", Value: uuid}
+				c := cookieOptions.ConstructCookie()
+				http.SetCookie(w, &c)
+			}
+
 			t := views.ParseFiles(&w, "contact.gohtml")
 			if err := t.Execute(w, nil); err != nil {
 				utils.CatchRuntimeErrors(err)
@@ -57,8 +78,61 @@ func Contact(rootRouter chi.Router, libs *config.Libs) {
 					return
 				}
 
-				result := libs.DB.Create(&models.Contact{Name: data.Form.Name, Email: data.Form.Email, Description: data.Form.Description})
+				// CSRF
+				var csrfToken string
+				redisErr := libs.Redis.Get("csrf-token", &csrfToken)
+				if redisErr != nil {
+					if errors.Is(redisErr, redis.ErrNoEntry) {
+						// TODO: Integrate Session and redirect back to /contact
+						data.Success = false
+						data.Message = "Invalid form submission. Form submission time expired."
+						data.Form = ContactForm{}
+					}
+					if err := template.Execute(w, data); err != nil {
+						utils.CatchRuntimeErrors(err)
+						http.Error(w, "error", 500)
+					}
+					return
+				}
+
+				cookieStr, cookieErr := r.Cookie("csrf")
+				if cookieErr != nil {
+					if errors.Is(cookieErr, http.ErrNoCookie) {
+						// TODO: Integrate Session and redirect back to /contact
+						data.Success = false
+						data.Message = "Invalid form submission. Form submission time expired."
+						data.Form = ContactForm{}
+						if err := template.Execute(w, data); err != nil {
+							utils.CatchRuntimeErrors(err)
+							http.Error(w, "error", 500)
+						}
+					}
+					if err := template.Execute(w, data); err != nil {
+						utils.CatchRuntimeErrors(err)
+						http.Error(w, "error", 500)
+					}
+					return
+				}
+
+				if cookieStr.Value != csrfToken {
+					data.Success = false
+					data.Message = "Invalid form submission. Form submission time expired."
+					data.Form = ContactForm{}
+					if err := template.Execute(w, data); err != nil {
+						utils.CatchRuntimeErrors(err)
+						http.Error(w, "error", 500)
+					}
+					return
+				}
+
+				result := libs.DB.Client.Create(&models.Contact{Name: data.Form.Name, Email: data.Form.Email, Description: data.Form.Description})
 				if result.Error != nil {
+					utils.CatchRuntimeErrors(result.Error)
+					http.Error(w, "error", 500)
+					return
+				}
+				// Delete CSRF Token
+				if redisDelErr := libs.Redis.Delete([]string{"csrf-token"}...); redisDelErr != nil {
 					utils.CatchRuntimeErrors(result.Error)
 					http.Error(w, "error", 500)
 					return

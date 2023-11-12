@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"go-web/config"
+	libraries "go-web/libs"
 	"go-web/libs/db"
+	"go-web/libs/redis"
 	"go-web/routes"
 	"go-web/utils"
 	"log"
@@ -16,13 +18,19 @@ import (
 func main() {
 	utils.LoadEnv()
 
-	database, err := db.InitDB(config.Database{})
-	if err != nil {
+	database := &db.DB{}
+	if err := database.Init(config.Database{}); err != nil {
 		log.Fatal("[error] Database connection error", err)
 		return
 	}
+	libs := libraries.Libs{DB: database}
 
-	libs := config.Libs{DB: database}
+	rs := &redis.Redis{}
+	if err := rs.Init(config.Redis{}); err != nil {
+		log.Fatal("[error] Redis connection error", err)
+		return
+	}
+	libs.Redis = rs
 
 	router := chi.NewRouter()
 	router.Use(utils.GetRouterMiddlewares()...)

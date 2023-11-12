@@ -2,15 +2,15 @@ package routes
 
 import (
 	"github.com/go-chi/chi/v5"
-	"go-web/config"
-	"go-web/routes/contact"
-	"go-web/routes/root"
+	"go-web/libs"
+	contact "go-web/routes/contact"
+	root "go-web/routes/root"
 	"go-web/utils"
 	"go-web/views"
 	"net/http"
 )
 
-func Routes(router chi.Router, libs *config.Libs) {
+func Routes(router chi.Router, libs *libs.Libs) {
 	root.Root(router, libs)
 	contact.Contact(router, libs)
 

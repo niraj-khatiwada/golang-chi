@@ -1,8 +1,8 @@
-package root
+package routes
 
 import (
 	"github.com/go-chi/chi/v5"
-	"go-web/config"
+	"go-web/libs"
 	"go-web/utils"
 	"go-web/views"
 	"net/http"
@@ -16,7 +16,7 @@ type Context struct {
 	Metadata Metadata
 }
 
-func Root(router chi.Router, _ *config.Libs) {
+func Root(router chi.Router, _ *libs.Libs) {
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		t := views.ParseFiles(&w, "root.gohtml")
 		context := Context{Name: "World", Metadata: Metadata{Title: "Golang"}}

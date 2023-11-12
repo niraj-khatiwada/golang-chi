@@ -3,13 +3,21 @@
 <h1>Contact Form</h1>
 <div class="contact-container">
     {{if .Success}}
-        <div class="validation-success-container">
-            {{if .Message}}
+        {{if .Message}}
+            <div class="validation-success-container">
                 <code class="success-message">
                     {{.Message}}
                 </code>
-            {{end}}
-        </div>
+            </div>
+        {{end}}
+    {{else}}
+        {{if .Message}}
+            <div class="validation-errors-container">
+                <code class="error-message">
+                    {{.Message}}
+                </code>
+            </div>
+        {{end}}
     {{end}}
     {{if .ValidationErrors}}
         <div class="validation-errors-container">

@@ -9,8 +9,9 @@ import (
 
 func Migrate() {
 	log.Println("[info] Migration: Started")
-	db, err := InitDB(config.Database{})
-	if err != nil {
+
+	database := &DB{}
+	if err := database.Init(config.Database{}); err != nil {
 		log.Fatal("[error] Migration: Error during database initialization ", err)
 	}
 
@@ -22,7 +23,7 @@ func Migrate() {
 
 	fmt.Println(tables)
 
-	if err := db.AutoMigrate(tables...); err != nil {
+	if err := database.Client.AutoMigrate(tables...); err != nil {
 		log.Fatal("[error] Migration: Error during migration")
 	}
 	log.Println("[info] Migration: Completed")

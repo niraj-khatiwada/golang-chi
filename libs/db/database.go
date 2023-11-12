@@ -8,7 +8,11 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-func InitDB(conf config.Database) (*gorm.DB, error) {
+type DB struct {
+	Client *gorm.DB
+}
+
+func (database *DB) Init(conf config.Database) error {
 	var dbConf config.Database
 	if conf != (config.Database{}) {
 		dbConf = conf
@@ -26,15 +30,16 @@ func InitDB(conf config.Database) (*gorm.DB, error) {
 	})
 	if err != nil {
 		utils.CatchRuntimeErrors(err)
-		return nil, err
+		return err
 	}
 	if sqlDB, err := db.DB(); err != nil {
 		utils.CatchRuntimeErrors(err)
-		return nil, err
+		return err
 	} else {
 		sqlDB.SetMaxOpenConns(config.DbMaxOpenConnections)
 		sqlDB.SetMaxIdleConns(config.DbMaxIdleConnections)
 		sqlDB.SetConnMaxLifetime(config.DbConnectionMaxLifetime)
 	}
-	return db, nil
+	database.Client = db
+	return nil
 }

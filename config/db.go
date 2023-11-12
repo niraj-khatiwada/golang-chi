@@ -32,5 +32,6 @@ func GetDefaultDatabaseConfig() Database {
 }
 
 func CreateDatabaseDSN(config *Database) string {
+	//mysql://user:pass@tcp(localhost:5555)/dbname
 	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.User, config.Password, config.Host, config.Port, config.Name)
 }
