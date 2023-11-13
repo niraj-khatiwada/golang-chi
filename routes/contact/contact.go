@@ -5,6 +5,7 @@ import (
 	validator "github.com/go-ozzo/ozzo-validation/v4"
 	validatorIs "github.com/go-ozzo/ozzo-validation/v4/is"
 	"go-web/libs"
+	"go-web/libs/flash"
 	"go-web/libs/validation"
 	"go-web/middlewares/csrf"
 	validationMiddleware "go-web/middlewares/validation"
@@ -35,8 +36,19 @@ func Contact(rootRouter chi.Router, libs *libs.Libs) {
 			csrfMiddleware := middlewares.CSRF{}
 			router.Use(csrfMiddleware.WithCSRFInjection(libs.Redis))
 			router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+				f := flash.Flash{}
+				var errorMessage string
+				var successMessage string
+				_ = f.GetFlashMessage(w, r, flash.FlashError, &errorMessage)
+				_ = f.GetFlashMessage(w, r, flash.FlashSuccess, &successMessage)
+				var message = ""
+				if len(successMessage) > 0 {
+					message = successMessage
+				} else if len(errorMessage) > 0 {
+					message = errorMessage
+				}
 				csrfTokenCtx := r.Context().Value(middlewares.WithCSRFInjection).(middlewares.WithCSRFInjectionContext)
-				data := ContactData{CSRFToken: csrfTokenCtx.CSRFToken}
+				data := ContactData{CSRFToken: csrfTokenCtx.CSRFToken, Success: len(successMessage) > 0, Message: message}
 				t := views.ParseFiles(&w, "contact.gohtml")
 				if err := t.Execute(w, data); err != nil {
 					utils.CatchRuntimeErrors(err)
@@ -79,15 +91,10 @@ func Contact(rootRouter chi.Router, libs *libs.Libs) {
 					return
 				}
 
-				// Instead of doing this, we can just redirect to /contact path. But for that we need some kind of session to flash the message.
-				// TODO: Integrate Session
-				data.Success = true
-				data.Message = "Thank you for contacting. We'll get back to you soon."
-				data.Form = ContactForm{}
-				if err := template.Execute(w, data); err != nil {
-					utils.CatchRuntimeErrors(err)
-					http.Error(w, "error", 500)
-				}
+				f := flash.Flash{}
+				f.SetFlashMessage(w, flash.FlashSuccess, "Thank you for contacting. We'll get back to you soon.")
+				http.Redirect(w, r, "/contact", 302)
+
 			})
 		})
 	})

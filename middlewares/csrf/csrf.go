@@ -3,10 +3,10 @@ package middlewares
 import (
 	"context"
 	"fmt"
+	"go-web/libs/flash"
 	redisLib "go-web/libs/redis"
 	"go-web/utils"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -61,16 +61,18 @@ func (_ *CSRF) WithCSRFVerification(redis *redisLib.Redis) func(next http.Handle
 			form := r.PostForm
 			csrfTokenStr := form.Get("csrf")
 			if len(csrfTokenStr) == 0 {
-				// TODO: Integrate Session and redirect back to /contact
-				http.Redirect(w, r, "/contact?error=invalid form ", 410)
+				f := flash.Flash{}
+				f.SetFlashMessage(w, flash.FlashError, "Invalid form")
+				http.Redirect(w, r, "/contact", 302)
 				return
 			}
 			var csrfToken string
 			csrfTokenKey := fmt.Sprintf("csrf-token-%s", csrfTokenStr)
 			redisErr := redis.Get(csrfTokenKey, &csrfToken)
 			if redisErr != nil {
-				// TODO: Integrate Session and redirect back to /contact
-				http.Redirect(w, r, fmt.Sprintf("/contact?error=%s", url.QueryEscape("form submission expired")), 302)
+				f := flash.Flash{}
+				f.SetFlashMessage(w, flash.FlashError, "Form submission has expired.")
+				http.Redirect(w, r, "/contact", 302)
 				return
 			}
 			ctxVal := WithCSRFVerificationContext{CSRFToken: csrfToken}
