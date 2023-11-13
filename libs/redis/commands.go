@@ -58,6 +58,5 @@ func (r *Redis) generateKeys(keys ...string) []string {
 	for _, key := range keys {
 		keysWithNamespace = append(keysWithNamespace, fmt.Sprintf("%s:%s", r.GlobalNamespace, key))
 	}
-	fmt.Println(keysWithNamespace)
 	return keysWithNamespace
 }

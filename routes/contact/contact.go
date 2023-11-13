@@ -5,8 +5,9 @@ import (
 	validator "github.com/go-ozzo/ozzo-validation/v4"
 	validatorIs "github.com/go-ozzo/ozzo-validation/v4/is"
 	"go-web/libs"
-	"go-web/libs/csrf"
 	"go-web/libs/validation"
+	"go-web/middlewares/csrf"
+	validationMiddleware "go-web/middlewares/validation"
 	"go-web/models"
 	"go-web/utils"
 	"go-web/views"
@@ -31,11 +32,11 @@ type ContactData struct {
 func Contact(rootRouter chi.Router, libs *libs.Libs) {
 	rootRouter.Route("/contact", func(router chi.Router) {
 		router.Group(func(router chi.Router) {
-			csrfLib := csrf.CSRF{}
-			router.Use(csrfLib.WithCSRFInjection(libs.Redis))
+			csrfMiddleware := middlewares.CSRF{}
+			router.Use(csrfMiddleware.WithCSRFInjection(libs.Redis))
 			router.Get("/", func(w http.ResponseWriter, r *http.Request) {
-				csrfToken := r.Context().Value(csrf.CSRFTokenContextKey).(string)
-				data := ContactData{CSRFToken: csrfToken}
+				csrfTokenCtx := r.Context().Value(middlewares.WithCSRFInjection).(middlewares.WithCSRFInjectionContext)
+				data := ContactData{CSRFToken: csrfTokenCtx.CSRFToken}
 				t := views.ParseFiles(&w, "contact.gohtml")
 				if err := t.Execute(w, data); err != nil {
 					utils.CatchRuntimeErrors(err)
@@ -45,21 +46,22 @@ func Contact(rootRouter chi.Router, libs *libs.Libs) {
 		})
 		router.Group(func(router chi.Router) {
 			// CSRF
-			csrfLib := csrf.CSRF{}
-			router.Use(csrfLib.WithCSRFVerification(libs.Redis))
+			csrfMiddleware := middlewares.CSRF{}
+			router.Use(csrfMiddleware.WithCSRFVerification(libs.Redis))
 			// Validation
 			nameRules := []validator.Rule{validator.Required, validator.Length(2, 100)}
 			emailRules := []validator.Rule{validator.Required, validatorIs.Email}
 			descriptionRules := []validator.Rule{validator.Required, validator.Length(1, 1000)}
 			validations := map[string][]validator.Rule{"name": nameRules, "email": emailRules, "description": descriptionRules}
-			validationMiddleware := validation.WithRequestInputValidation{}
-			router.Use(validationMiddleware.Validate(validations))
+			validationMid := validationMiddleware.WithRequestInputValidation{}
+			router.Use(validationMid.Validate(validations))
 			router.Post("/", func(w http.ResponseWriter, r *http.Request) {
-				ctx := r.Context().Value("WithRequestInputValidation").(validation.WithRequestInputValidationContext)
-				formData := ctx.FormData
-				data := ContactData{}
+				csrfTokenCtx := r.Context().Value(middlewares.WithCSRFVerification).(middlewares.WithCSRFVerificationContext)
+				data := ContactData{CSRFToken: csrfTokenCtx.CSRFToken}
+				inputValidationCtx := r.Context().Value("WithRequestInputValidation").(validationMiddleware.WithRequestInputValidationContext)
+				formData := inputValidationCtx.FormData
 				data.Form = ContactForm{Name: formData.Get("name"), Email: formData.Get("email"), Description: formData.Get("description")}
-				var validationErrors = ctx.ValidationErrors
+				var validationErrors = inputValidationCtx.ValidationErrors
 				template := views.ParseFiles(&w, "contact.gohtml")
 				if validationErrors != nil {
 					data.ValidationErrors = validationErrors

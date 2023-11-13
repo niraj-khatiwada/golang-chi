@@ -1,4 +1,4 @@
-package csrf
+package middlewares
 
 import (
 	"context"
@@ -11,14 +11,22 @@ import (
 )
 
 type CSRF struct {
-	targetDOMName string
+}
+
+type WithCSRFInjectionContext struct {
+	CSRFToken string
+}
+
+type WithCSRFVerificationContext struct {
+	CSRFToken string
 }
 
 const (
-	CSRFTokenContextKey = "CSRFToken"
+	WithCSRFInjection    = "WithCSRFInjection"
+	WithCSRFVerification = "WithCSRFVerification"
 )
 
-func (csrf *CSRF) WithCSRFInjection(redis *redisLib.Redis) func(next http.Handler) http.Handler {
+func (_ *CSRF) WithCSRFInjection(redis *redisLib.Redis) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			UUID := utils.AlphanumericUUID{}
@@ -35,13 +43,14 @@ func (csrf *CSRF) WithCSRFInjection(redis *redisLib.Redis) func(next http.Handle
 					return
 				}
 			}
-			ctx := context.WithValue(r.Context(), CSRFTokenContextKey, uuid)
+			ctxVal := WithCSRFInjectionContext{CSRFToken: uuid}
+			ctx := context.WithValue(r.Context(), WithCSRFInjection, ctxVal)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-func (csrf *CSRF) WithCSRFVerification(redis *redisLib.Redis) func(next http.Handler) http.Handler {
+func (_ *CSRF) WithCSRFVerification(redis *redisLib.Redis) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if err := r.ParseForm(); err != nil {
@@ -61,11 +70,12 @@ func (csrf *CSRF) WithCSRFVerification(redis *redisLib.Redis) func(next http.Han
 			redisErr := redis.Get(csrfTokenKey, &csrfToken)
 			if redisErr != nil {
 				// TODO: Integrate Session and redirect back to /contact
-				w.Header().Set("Content-Type", "")
 				http.Redirect(w, r, fmt.Sprintf("/contact?error=%s", url.QueryEscape("form submission expired")), 302)
 				return
 			}
-			next.ServeHTTP(w, r)
+			ctxVal := WithCSRFVerificationContext{CSRFToken: csrfToken}
+			ctx := context.WithValue(r.Context(), WithCSRFVerification, ctxVal)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
